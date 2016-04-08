@@ -59,20 +59,6 @@ include_directories(${Boost_INCLUDE_DIRS})
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
 
-
-#INSTALL(DIRECTORY ${OPENMHT_INC_DIR} DESTINATION ${CMAKE_INSTALL_PREFIX}
-#  FILES_MATCHING REGEX .*\\.h|.*\\.proto
-#)
-
-#INSTALL(TARGETS ${} 
-#  LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
-#  PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-#)
-
-install(DIRECTORY ${OPENMHT_LIB_DIR}/ 
-  DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
-  )
-
 ## let cmake know where the headers are
 include_directories(${OPENMHT_INC_DIR})
 
@@ -84,3 +70,60 @@ endforeach()
 
 add_subdirectory(src)
 add_subdirectory(share)
+
+
+###############################################################################
+# Installation
+# 
+###############################################################################
+set(PKGCONFIG_INSTALL_ONLY ON CACHE BOOL "Only install pkgconfig file")
+
+if (NOT PKGCONFIG_INSTALL_ONLY)
+  set(CMAKE_INSTALL_PREFIX_SHADOW ${CMAKE_INSTALL_PREFIX})
+  
+  install(DIRECTORY ${OPENMHT_LIB_DIR}/ 
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/openmht
+    )
+
+  # Install header files to system
+  # The CMakeLists.txt for each library contains the 
+  # commands to install the library
+  # TODO, since we removed include directory during development builds, we need
+  # to add a new rule here to create the include directory before installation.
+  INSTALL(
+    DIRECTORY ${OPENMHT_INC_DIR} 
+    DESTINATION ${CMAKE_INSTALL_PREFIX}
+    FILES_MATCHING REGEX .*\\.h|.*\\.proto|.*\\.inl
+    )
+else()
+  # If we are only installing the pkgconfig file, then make the shadow install
+  # prefix set to the current directory
+  set(CMAKE_INSTALL_PREFIX_SHADOW ${CMAKE_SOURCE_DIR})
+endif()
+
+IF(UNIX AND NOT APPLE)
+  # - Add each library to LIBS_STRING 
+  # OPENMHT_LIBS is a "global" variable that is passed
+  # down to each sub directory and every library that is
+  # generated in this project appends its name to this
+  # variable.
+  foreach(I ${OPENMHT_LIBS})
+    #get_filename_component(CUR_LIB ${I} NAME)
+    #message("------> : Lib")    
+    #message(${I})
+    set (LIBS_STRING "${LIBS_STRING} -l${I}")    
+  endforeach()    
+
+  # - Use the openmht.pc.in file to generate the 
+  #     the final openmht.pc file
+  configure_file (
+    "${CMAKE_MODULE_PATH}/openmht.pc.in" 
+    "${OPENMHT_BUILD_DIR}/openmht.pc" 
+    @ONLY)
+
+  # - Install the openmht.pc file to lib/pkgconfig
+  install (
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/openmht.pc"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/pkgconfig"
+    )
+ENDIF()
